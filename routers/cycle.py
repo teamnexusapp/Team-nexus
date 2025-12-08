@@ -33,18 +33,23 @@ bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 
 
 def cycle_calculate(start_date:datetime, cycle_length:int, period_length:int):
+    if isinstance(start_date, datetime):
+        start_date = start_date.date()
+
     ovulation_day = start_date + timedelta(days=cycle_length-14)
     fertilation_start = ovulation_day - timedelta(days=5)
     fertilation_end = ovulation_day + timedelta(days=1)
     next_period = start_date + timedelta(days=cycle_length)
+    period_end = start_date + timedelta(days=cycle_length)
+
     return {
-        "ovulation_day": ovulation_day.date(),
+        "ovulation_day": ovulation_day,
         "fertile_window": {
-            "start":  fertilation_start.date(),
-            "end": fertilation_end.date(),
+            "start":  fertilation_start,
+            "end": fertilation_end,
         },
-        "next_period": next_period.date(),
-        "period_end": (start_date + timedelta(days=period_length)).date()
+        "next_period": next_period,
+        "period_end":period_end
     }
 
 

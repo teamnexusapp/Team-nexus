@@ -3,6 +3,8 @@ from database import Base
 from sqlalchemy import Column, Date, DateTime, Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 
+from schema import Prediction
+
 
 class Users(Base):
     __tablename__ = "users"
@@ -18,6 +20,8 @@ class Users(Base):
     profile = relationship("UserProfile", back_populates="user",
                            uselist=False, cascade="all, delete")
     cycle = relationship("Cycle", back_populates="user",
+                         uselist=False, cascade="all, delete")
+    insights = relationship("Insights", back_populates="user",
                          uselist=False, cascade="all, delete")
 
 
@@ -49,3 +53,22 @@ class Cycle(Base):
     period_length = Column(Integer, default=5)
 
     user = relationship("Users", back_populates="cycle")
+    
+
+class Insights(Base):
+    __tablename__ = "insights"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey(
+        "users.id", ondelete="CASCADE"), unique=True)
+
+    next_period = Column(Date, nullable=False)
+    ovulation_day = Column(Date, nullable=False)
+    fertile_period_start= Column(Date, nullable=False)
+    fertile_period_end = Column(Date, nullable=False)
+    symptoms: Prediction
+
+    user = relationship("Users", back_populates="insights")
+
+
+

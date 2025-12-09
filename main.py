@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routers import auth, cycle, users
+from routers import auth, cycles, insights, users
 from fastapi.middleware.cors import CORSMiddleware
 import models
 from database import engine
@@ -31,4 +31,5 @@ models.Base.metadata.create_all(bind=engine)
 
 app.include_router(auth.router)
 app.include_router(users.router)
-app.include_router(cycle.router)
+app.include_router(cycles.router)
+app.include_router(insights.router)

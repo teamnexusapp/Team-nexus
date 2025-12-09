@@ -8,6 +8,7 @@ from database import SessionLocal
 from schema import CycleRequest, UpdateUserProfileRequest, UserProfileResponse
 from .auth import get_current_user
 from passlib.context import CryptContext
+from utils.utility import cycle_calculation
 
 
 router = APIRouter(
@@ -29,36 +30,34 @@ def get_db():
 
 db_dependency = Annotated[Session, Depends(get_db)]
 user_dependency = Annotated[dict, Depends(get_current_user)]
-bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 
 
-def cycle_calculate(start_date:datetime, cycle_length:int, period_length:int):
-    if isinstance(start_date, datetime):
-        start_date = start_date.date()
+@router.get("/cycles", status_code=status.HTTP_200_OK)
+async def get_cylces(db:db_dependency, user:user_dependency):
+    cycles_list = db.query(cycles).filter(cycles.user_id == user['id']).all()
 
-    ovulation_day = start_date + timedelta(days=cycle_length-14)
-    fertilation_start = ovulation_day - timedelta(days=5)
-    fertilation_end = ovulation_day + timedelta(days=1)
-    next_period = start_date + timedelta(days=cycle_length)
-    period_end = start_date + timedelta(days=cycle_length)
+    if not cycles_list:
+        raise HTTPException(
+            status_code=404,
+            detail="No cycles found for this user."
+        )
+      
+    return [ {
+          "Cycle_id": cycle.id,
+          "Start_date": cycle.start_date,
+          "Cycle_length": cycle.cycle_length,
+          "Period_length": cycle.period_length
+           
+       }
 
-    return {
-        "ovulation_day": ovulation_day,
-        "fertile_window": {
-            "start":  fertilation_start,
-            "end": fertilation_end,
-        },
-        "next_period": next_period,
-        "period_end":period_end
-    }
+        for cycle in cycles_list
+]
 
 
-
-
-@router.post("/calculate_cycle", status_code=status.HTTP_200_OK)
-async def calculate_cycle(cycle_data: CycleRequest, db: db_dependency, user: user_dependency ):
+@router.post("/cycles", status_code=status.HTTP_200_OK)
+async def cycles(cycle_data: CycleRequest, db: db_dependency, user: user_dependency ):
     user_id = user['id']
-    cycle_info = cycle_calculate(
+    cycle_info = cycle_calculation(
         start_date=cycle_data.start_date,
         cycle_length=cycle_data.cycle_length,
         period_length=cycle_data.period_length
@@ -69,7 +68,7 @@ async def calculate_cycle(cycle_data: CycleRequest, db: db_dependency, user: use
            start_date=cycle_data.start_date,
            cycle_length=cycle_data.cycle_length,
            period_length=cycle_data.period_length
-
+ 
        )
 
     db.add(cycle)

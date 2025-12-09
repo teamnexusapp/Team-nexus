@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, EmailStr
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 
 from sqlalchemy import String
@@ -38,10 +38,28 @@ class UserProfileResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+
 class CycleRequest(BaseModel):
-    start_date : date
+    start_date: date
     cycle_length : int = Field(..., ge=21, le=32)
     period_length: int = Field(..., ge=2, le=10)
+
+
+class Prediction(BaseModel):
+    phase: str
+    common_symptoms: list[str]
+    recommendations: list[str]
+    
+
+class InsightsRequest(BaseModel):
+    next_period: datetime
+    ovulation_day: datetime
+    fertile_period_start: datetime
+    fertile_period_end: datetime
+    symptoms: Prediction
+
+
 
 
 class Token(BaseModel):

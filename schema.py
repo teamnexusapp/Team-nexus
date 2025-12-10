@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, EmailStr
 from datetime import date, datetime
-from typing import Optional
-
+from typing import List, Optional
+from enum import Enum
 from sqlalchemy import String
 
 
@@ -14,6 +14,7 @@ class CreateUserRequest(BaseModel):
     password: str = Field(String(40))
     role:str
     phone_number:str
+
 
 class  UpdateUserProfileRequest(BaseModel):
     age:int
@@ -39,11 +40,42 @@ class UserProfileResponse(BaseModel):
         from_attributes = True
 
 
+class Symptom(str, Enum):
+    headache = "headache"
+    nausea = "nausea"
+    cramps = "cramps"
+    fatigue = "fatigue"
+    breast_tenderness = "breast_tenderness"
+    acne = "acne"
+
+
 
 class CycleRequest(BaseModel):
-    start_date: date
+    last_period_date: date
     cycle_length : int = Field(..., ge=21, le=32)
     period_length: int = Field(..., ge=2, le=10)
+    symptoms: Optional[List[Symptom]] = None
+
+
+class CycleResponse(BaseModel):
+    last_period_date: date
+    cycle_length: int
+    period_length: int
+    symptons: Optional[List[Symptom]]
+
+    class Config:
+        from_attributes = True
+
+
+class CyclePrediction(BaseModel):
+    period_start: str
+    period_end: str
+    period_length: int
+    next_period: str
+    ovulation_day: str
+    fertile_window: List[str]
+    fertility_score: int
+
 
 
 class Prediction(BaseModel):
@@ -53,14 +85,14 @@ class Prediction(BaseModel):
     
 
 class InsightsRequest(BaseModel):
-    next_period: datetime
-    ovulation_day: datetime
-    fertile_period_start: datetime
-    fertile_period_end: datetime
-    symptoms: Prediction
+    cycle_length: int
+    last_period_date: date
+    period_length:int
+    symptoms: dict | None = None
 
 
-
+class MessageRequest(BaseModel):
+    message: str
 
 class Token(BaseModel):
     access_token: str

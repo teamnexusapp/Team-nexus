@@ -21,12 +21,10 @@ router = APIRouter(
 )
 
 
-# Bcrypt for password hashing setup with passlib
 bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl='auth/token')
 
 
-# create a db dependency
 def get_db():
     db = SessionLocal()
     try:
@@ -35,10 +33,10 @@ def get_db():
         db.close()
 
 
-# create the API endpoints
+
 db_depedency = Annotated[Session, Depends(get_db)]
 
-# function to validate username and password
+
 
 
 def authenticate_user(username: str, password: str, db):
@@ -112,5 +110,5 @@ async def login_in_token(db: db_depedency, form_data: Annotated[OAuth2PasswordRe
 
 @router.post("/logout")
 async def logout_user():
-    # Nothing server-side to do; just inform client to discard the token
+  
     return {"message": "Logout successful"}

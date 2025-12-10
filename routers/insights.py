@@ -1,67 +1,49 @@
-from datetime import datetime, timedelta
-from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, Path
-from sqlalchemy.orm import Session
-from starlette import status
-from models import Cycle, Insights, Users, UserProfile
-from database import SessionLocal
-from schema import CycleRequest, InsightsRequest, UpdateUserProfileRequest, UserProfileResponse
-from utils.utility import cycle_calculation, symptoms_and_recommendation
-from .auth import get_current_user
-from passlib.context import CryptContext
+
+from schema import InsightsRequest
+from fastapi import APIRouter
+from utils.ai import hf_generate
+from utils.predictions import simple_fertility_ai
 
 
-router = APIRouter(
-    prefix="/insights",
-    tags=["insights"]
-)
+router = APIRouter()
 
 
-# create a db dependency
-def get_db():
-    db = SessionLocal()
+
+
+@router.post("/insights")
+async def insights(data: InsightsRequest):
     try:
-        yield db
-    finally:
-        db.close()
 
-# create the API dependencies
+        prep_result = simple_fertility_ai(
+            cycle_length=data.cycle_length,
+            last_period_date=data.last_period_date,
+            period_length=data.period_length,
+            symptoms=data.symptoms
+        )
 
+        prep_result["next_period"] = str(prep_result["next_period"])
+        prep_result["ovulation_day"] = str(prep_result["ovulation_day"])
+        prep_result["fertile_window"] = [
+            str(d) for d in prep_result["fertile_window"]]
 
-db_dependency = Annotated[Session, Depends(get_db)]
-user_dependency = Annotated[dict, Depends(get_current_user)]
+        prompt = f"""
+These are the fertility predictions:
+Next period: {prep_result['next_period']}
+Ovulation day: {prep_result['ovulation_day']}
+Fertile window: {prep_result['fertile_window']}
+Fertility score: {prep_result['fertility_score']}
 
+Write a friendly, supportive, simple fertility insight.
+Avoid medical diagnosis.
+"""
 
-@router.get("/insights", status_code=status.HTTP_200_OK, response_model=InsightsRequest)
-async def get_insights(db: db_dependency, user: user_dependency):
-   insights_list = db.query(Insights).filter(Insights.user_id == user['id']).all()
+        insight = hf_generate(prompt)
 
-   if not insights_list:
-       raise HTTPException(
-           status_code=404,
-           detail="No cycles found for this user."
-       )
-    
-   last_insight = insights_list[-1]
+        return {
+            "predictions": prep_result,
+            "insight": insight
+        }
 
-   start_date = last_insight.start_date
-   cycle_length = last_insight.cycle_length
-   period_length = last_insight.period_length
+    except Exception as e:
 
-   cycle_result = cycle_calculation(start_date, cycle_length, period_length )
-   
-   today = datetime.now().date()
-   days_in_cycle = (today - start_date).days % cycle_length
-
-   symptoms = symptoms_and_recommendation(days_in_cycle, cycle_length)
-   
-   return {
-       "cycle": {
-           "ovulation_day": cycle_result["ovulation_day"],
-           "fertile_period_start": cycle_result["fertile_period_start"],
-           "fertile_period_end": cycle_result["fertile_period_end"],
-           "next_period": cycle_result["next_period"],
-           "period_end": cycle_result["period_end"]
-       },
-       "symptoms_and_recommendations": symptoms
-   }
+        return {"error": f"Something went wrong: {e}"}

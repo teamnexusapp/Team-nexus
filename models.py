@@ -1,7 +1,8 @@
 from datetime import datetime
+from typing import List, Optional
 from database import Base
-from sqlalchemy import Column, Date, DateTime, Integer, String, Boolean, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Date, DateTime, Integer, String, Boolean, ForeignKey, JSON
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from schema import Prediction
 
@@ -9,20 +10,22 @@ from schema import Prediction
 class Users(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String(255), unique=True)
-    username = Column(String, unique=True)
-    first_name = Column(String)
-    last_name = Column(String)
-    hashed_password = Column(String)
-    role = Column(String)
-    phone_number = Column(String)
-    profile = relationship("UserProfile", back_populates="user",
-                           uselist=False, cascade="all, delete")
-    cycle = relationship("Cycle", back_populates="user",
-                         uselist=False, cascade="all, delete")
-    insights = relationship("Insights", back_populates="user",
-                         uselist=False, cascade="all, delete")
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True)
+    username: Mapped[str] = mapped_column(
+        String(40), unique=True, server_default="guest")
+    first_name: Mapped[str]
+    last_name: Mapped[str]
+    hashed_password: Mapped[str]
+    role: Mapped[str]
+    phone_number: Mapped[str]
+
+    profile: Mapped["UserProfile"] = relationship(
+        "UserProfile", back_populates="user", uselist=False, cascade="all, delete")
+    cycle: Mapped["Cycles"] = relationship(
+        "Cycles", back_populates="user", uselist=False, cascade="all, delete")
+    insights: Mapped["Insights"] = relationship(
+        "Insights", back_populates="user", uselist=False, cascade="all, delete")
 
 
 class UserProfile(Base):
@@ -42,33 +45,38 @@ class UserProfile(Base):
     user = relationship("Users", back_populates="profile")
 
 
-class Cycle(Base):
+class Cycles(Base):
     __tablename__ = "cycles"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey(
+        "users.id", ondelete="CASCADE"), unique=True)
 
-    start_date = Column(Date, nullable=False)
-    cycle_length = Column(Integer, default=28)
-    period_length = Column(Integer, default=5)
+    last_period_date: Mapped[Date] = mapped_column(Date, nullable=False)
+    cycle_length: Mapped[int] = mapped_column(Integer, default=28)
+    period_length: Mapped[int] = mapped_column(Integer, default=5)
 
-    user = relationship("Users", back_populates="cycle")
+ 
+    symptoms: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
+
+    user: Mapped["Users"] = relationship("Users", back_populates="cycle")
     
+
 
 class Insights(Base):
     __tablename__ = "insights"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey(
-        "users.id", ondelete="CASCADE"), unique=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True)
 
-    next_period = Column(Date, nullable=False)
-    ovulation_day = Column(Date, nullable=False)
-    fertile_period_start= Column(Date, nullable=False)
-    fertile_period_end = Column(Date, nullable=False)
-    symptoms: Prediction
+    next_period: Mapped[Date] = mapped_column(Date, nullable=False)
+    ovulation_day: Mapped[Date] = mapped_column(Date, nullable=False)
+    fertile_period_start: Mapped[Date] = mapped_column(Date, nullable=False)
+    fertile_period_end: Mapped[Date] = mapped_column(Date, nullable=False)
 
-    user = relationship("Users", back_populates="insights")
+   
+    symptoms: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
+    user: Mapped["Users"] = relationship("Users", back_populates="insights")
 
 

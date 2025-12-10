@@ -15,7 +15,6 @@ router = APIRouter(
 )
 
 
-# create a db dependency
 
 def get_db():
     db = SessionLocal()
@@ -25,13 +24,13 @@ def get_db():
         db.close()
 
 
-# create the API dependencies
+
 
 db_dependency = Annotated[Session, Depends(get_db)]
 user_dependency = Annotated[dict, Depends(get_current_user)]
 bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 
-# create the API endpoints
+
 
 
 @router.get("/get_user", status_code=status.HTTP_200_OK)

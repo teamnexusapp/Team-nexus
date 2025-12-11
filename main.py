@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routers import auth, cycles, insights, users
+from routers import auth, cycles, insights, users,messages
 from fastapi.middleware.cors import CORSMiddleware
 import models
 from database import engine
@@ -33,3 +33,4 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(cycles.router)
 app.include_router(insights.router)
+app.include_router(messages.router)

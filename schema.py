@@ -94,6 +94,11 @@ class InsightsRequest(BaseModel):
 class MessageRequest(BaseModel):
     message: str
 
+
+class MessageResponse(BaseModel):
+    reply: str
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str

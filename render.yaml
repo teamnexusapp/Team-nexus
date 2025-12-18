@@ -1,0 +1,26 @@
+databases:
+  - name: fertipath-db
+    databaseName: fertipath_database
+    ipAllowList: [] #only allow connections from the app
+
+services:
+  - type: web
+    name: fertipath-backend
+    runtime: python
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    autoDeploy: true
+    rootDir: .
+    branch: main
+    envVars:
+      - key: COHERE_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.13.4"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fertipath-db
+          property: connectionString
+

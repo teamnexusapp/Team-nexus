@@ -1,28 +1,44 @@
-from datetime import datetime, timedelta, timezone
-from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import datetime, timedelta
+import json
+from fastapi import APIRouter, Depends, HTTPException, Body, status
 from sqlalchemy import or_
-from starlette import status
-from database import SessionLocal
 from sqlalchemy.orm import Session
-from schema import CreateUserRequest, Token
-from models import Users
-from passlib.context import CryptContext
-from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
-from jose import jwt, JWTError
+from typing import Annotated
+from database import SessionLocal
+from models import OTP, Users, LanguageEnum
+from schemas import CreateUserRequest, Token
+from utils.utils import bcrypt_context, authenticate_user, create_access_token, generate_otp, hash_otp, send_otp_sms, verify_otp_hash
+from fastapi.security import OAuth2PasswordRequestForm
+import firebase_admin
+from firebase_admin import credentials
 from dotenv import load_dotenv
 import os
 
 load_dotenv()
+
+firebase_creds = os.getenv("FIREBASE_CREDENTIALS")
+if not firebase_creds:
+    raise ValueError("FIREBASE_CREDENTIALS environment variable is not set!")
+
+try:
+    # Try to parse it as JSON directly (Render case)
+    cred_dict = json.loads(firebase_creds)
+except json.JSONDecodeError:
+    # If it fails, treat it as a file path (local dev case)
+    with open(firebase_creds, "r") as f:
+        cred_dict = json.load(f)
+
+cred = credentials.Certificate(cred_dict)
+
+if not firebase_admin._apps:
+    firebase_admin.initialize_app(cred)
 
 router = APIRouter(
     prefix="/auth",
     tags=["auth"]
 )
 
-
-bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
-oauth2_bearer = OAuth2PasswordBearer(tokenUrl='auth/token')
+# Dependency to get DB session
 
 
 def get_db():
@@ -33,82 +49,130 @@ def get_db():
         db.close()
 
 
-
-db_depedency = Annotated[Session, Depends(get_db)]
-
+db_dependency = Annotated[Session, Depends(get_db)]
 
 
-
-def authenticate_user(username: str, password: str, db):
-    user = db.query(Users).filter(Users.username == username).first()
-    if not user:
-        return False
-    if not bcrypt_context.verify(password, user.hashed_password):
-        return False
-    return user
-
-
-def create_access_token(username: str, user_id: int, role: str, expires_delta: timedelta):
-   encode = {'sub': username, 'id': user_id, 'role': role}
-   expires = datetime.now(timezone.utc) + expires_delta
-   encode.update({'exp': expires})
-   return jwt.encode(encode, os.getenv('SECRET_KEY'), algorithm=os.getenv('ALGORITHM'))
-
-
-async def get_current_user(token: Annotated[str, Depends(oauth2_bearer)]):
-    try:
-        payload = jwt.decode(token, os.getenv('SECRET_KEY'),
-                             algorithms=os.getenv('ALGORITHM'))
-        username: str = payload.get('sub')
-        user_id: int = payload.get('id')
-        user_role: str = payload.get('role')
-        if username is None or user_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail='Could not validate user!')
-        return {'username': username, 'id': user_id, 'user_role': user_role}
-    except JWTError:
+@router.post("/send-otp", status_code=status.HTTP_200_OK)
+async def send_otp_registration(
+    db: db_dependency,
+    create_user_request: CreateUserRequest
+):
+    # Check if email or username already exists
+    existing = db.query(Users).filter(
+        or_(Users.email == create_user_request.email,
+            Users.username == create_user_request.username)
+    ).first()
+    if existing:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail='Could not validate user!')
+            status_code=400, detail="Email or username already exists"
+        )
+
+    # Generate OTP
+    otp_code = generate_otp()  # e.g., 4-digit
+    otp_hashed = hash_otp(otp_code)
+    expires_at = datetime.utcnow() + timedelta(minutes=5)  # 5 min expiry
+
+    # Save OTP in DB
+    otp_record = OTP(
+        phone=create_user_request.phone_number,
+        otp_hashed=otp_hashed,
+        attempts=0,
+        is_used=False,
+        expires_at=expires_at
+    )
+    db.add(otp_record)
+    db.commit()
+    db.refresh(otp_record)
+
+    # Send OTP via SMS (Firebase or other provider)
+    send_otp_sms(create_user_request.phone_number,
+                 f"Your verification code is {otp_code}")
+
+    return {
+        "message": f"OTP sent to {create_user_request.phone_number}",
+        "phone_number": create_user_request.phone_number
+    }
+
+# --------------------------
+# Step 2: Verify OTP & create user
+# --------------------------
 
 
-# endpoints
+@router.post("/verify-otp", status_code=status.HTTP_201_CREATED)
+async def verify_otp_registration(
+    db: db_dependency,
+    phone_number: str = Body(...),
+    otp_code: str = Body(...),
+    create_user_request: CreateUserRequest = Body(...)
+):
+    # Get the latest OTP for this phone
+    otp_record = db.query(OTP).filter(
+        OTP.phone == phone_number,
+        OTP.is_used == False
+    ).order_by(OTP.id.desc()).first()
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
-async def create_user(db: db_depedency, create_user_request: CreateUserRequest):
-   existing = db.query(Users).filter(or_(
-       Users.email == create_user_request.email, Users.username == create_user_request.username)).first()
-   if existing:
-       raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, details='Email or Username already used!')
-   new_user = Users(
-       email=create_user_request.email,
-       username=create_user_request.username,
-       first_name=create_user_request.first_name,
-       last_name=create_user_request.last_name,
-       hashed_password=bcrypt_context.hash(create_user_request.password),
-       role=create_user_request.role,
-       phone_number=create_user_request.phone_number
-   )
+    if not otp_record:
+        raise HTTPException(
+            status_code=400, detail="OTP not found. Please request a new one.")
 
-   db.add(new_user)
-   db.commit()
-   db.refresh(new_user)
+    if otp_record.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="OTP has expired.")
+
+    if not verify_otp_hash(otp_code, otp_record.otp_hashed):
+        otp_record.attempts += 1
+        db.commit()
+        raise HTTPException(status_code=400, detail="Invalid OTP.")
+
+    # Mark OTP as used
+    otp_record.is_used = True
+    db.commit()
+
+    # Create user
+    hashed_password = bcrypt_context.hash(create_user_request.password)
+    new_user = Users(
+        email=create_user_request.email,
+        username=create_user_request.username,
+        first_name=create_user_request.first_name,
+        last_name=create_user_request.last_name,
+        hashed_password=hashed_password,
+        role=create_user_request.role,
+        phone_number=create_user_request.phone_number,
+        is_verified=True,
+        language_preference=create_user_request.language_preference or LanguageEnum.ENGLISH
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return {"message": "User created successfully", "user_id": new_user.id}
 
 
-     
-
+# Login endpoint
 
 @router.post("/token", response_model=Token)
-async def login_in_token(db: db_depedency, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
-     user = authenticate_user(form_data.username, form_data.password, db)
-     if not user:
-           raise HTTPException(
-               status_code=status.HTTP_401_UNAUTHORIZED, detail='Could not validate user!')
-     token = create_access_token(
-           user.username, user.id, user.role, timedelta(minutes=20))
-     return {'access_token': token, 'token_type': 'bearer'}
+async def login_in_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
+    user = authenticate_user(form_data.username, form_data.password, db)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate user!"
+        )
 
+    token = create_access_token(
+        username=user.username,
+        user_id=user.id,
+        role=user.role,
+        expires_delta=timedelta(minutes=20)
+    )
+    return {"access_token": token, "token_type": "bearer"}
+
+
+# Logout endpoint (placeholder)
 
 @router.post("/logout")
 async def logout_user():
-  
     return {"message": "Logout successful"}

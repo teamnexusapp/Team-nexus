@@ -5,24 +5,34 @@ from enum import Enum
 from sqlalchemy import String
 
 
+class LanguageEnum(str, Enum):
+    en = "en"
+    yo = "yo"
+    ig = "ig"
+    ha = "ha"
+
 
 class CreateUserRequest(BaseModel):
     email: EmailStr
-    username: str = Field(String(40))
-    first_name: str
-    last_name: str
-    password: str = Field(String(40))
-    role:str
-    phone_number:str
+    username: str = Field(..., min_length=3, max_length=40, )
+    first_name: str = Field(..., max_length=100)
+    last_name: str = Field(..., max_length=100)
+    password: str = Field(..., min_length=8, max_length=60)
+    role: str
+    phone_number: str
+    language_preference: Optional[LanguageEnum] = LanguageEnum.en
 
 
-class  UpdateUserProfileRequest(BaseModel):
-    age:int
+class UserVerify(BaseModel):
+    phone_number: str
+
+
+class UpdateUserProfileRequest(BaseModel):
+    age: int
     cycle_length: int
     last_period_date: date
     ttc_history: Optional[str] = None
-    faith_preference:str
-    language_preference: str
+    faith_preference: str
     audio_perference: bool
 
 
@@ -33,7 +43,6 @@ class UserProfileResponse(BaseModel):
     last_period_date: Optional[date] = None
     ttc_history: Optional[str] = None
     faith_preference: Optional[str] = None
-    language_preference: Optional[str] = None
     audio_preference: Optional[bool] = None
 
     class Config:
@@ -49,10 +58,9 @@ class Symptom(str, Enum):
     acne = "acne"
 
 
-
 class CycleRequest(BaseModel):
     last_period_date: date
-    cycle_length : int = Field(..., ge=21, le=32)
+    cycle_length: int = Field(..., ge=21, le=32)
     period_length: int = Field(..., ge=2, le=10)
     symptoms: Optional[List[Symptom]] = None
 
@@ -77,18 +85,26 @@ class CyclePrediction(BaseModel):
     fertility_score: int
 
 
-
 class Prediction(BaseModel):
     phase: str
     common_symptoms: list[str]
     recommendations: list[str]
-    
+
 
 class InsightsRequest(BaseModel):
     cycle_length: int
     last_period_date: date
-    period_length:int
-    symptoms: dict | None = None
+    period_length: int
+    symptoms: list[str] | None = None
+
+
+class InsightsResponse(BaseModel):
+    next_period: str
+    ovulation_day: str
+    fertile_period_start:str
+    fertile_period_end: str
+    symptoms: list[str] | None = None
+     
 
 
 class MessageRequest(BaseModel):
@@ -102,4 +118,3 @@ class MessageResponse(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
- 

@@ -1,0 +1,20 @@
+# Ignore virtual environment
+venv/
+
+# Ignore TEAM_NEXUS_BACKEND_API folder
+Team-nexus
+
+# Ignore environment files
+*.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE files
+.vscode/
+
+# firebase files
+
+firebase/serviceAccountKey.json

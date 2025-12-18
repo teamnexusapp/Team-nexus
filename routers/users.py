@@ -4,9 +4,12 @@ from sqlalchemy.orm import Session
 from starlette import status
 from models import Users, UserProfile
 from database import SessionLocal
-from schema import UpdateUserProfileRequest, UserProfileResponse
-from .auth import get_current_user
+from schemas import UpdateUserProfileRequest, UserProfileResponse
+from utils.utils import get_current_user
 from passlib.context import CryptContext
+
+
+
 
 
 router = APIRouter(
@@ -37,28 +40,29 @@ bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 async def get_user(user: user_dependency, db: db_dependency):
     if user is None:
         raise HTTPException(status_code=401, detail="User Not Found!")
-    user_model = db.query(Users).filter(Users.id == user['id']).first()
+    db_user  = db.query(Users).filter(Users.id == user['id']).first()
     return {
-        'username': user_model.username,
-        'email': user_model.email,
-        'first_name': user_model.first_name,
-        'last_name': user_model.last_name,
-        'role': user_model.role,
-        'phone_number': user_model.phone_number
+        'username': db_user.username,
+        'email': db_user.email,
+        'first_name': db_user.first_name,
+        'last_name': db_user.last_name,
+        'role': db_user.role,
+        'phone_number': db_user.phone_number,
+        'preferred_language': db_user.language_preference
     }
 
 
 @router.delete("/delete_user", status_code=status.HTTP_200_OK)
 async def delete_user(user: user_dependency, db: db_dependency):
      user_id = user['id']
-     user = db.query(Users).filter(Users.id == user_id).first()
-     if not user:
+     db_user = db.query(Users).filter(Users.id == user_id).first()
+     if not db_user:
          raise HTTPException(status_code=401, detail="User Not Found!")
      user_profile = db.query(UserProfile).filter(
          UserProfile.user_id == user_id).first()
      if user_profile:
          db.delete(user_profile)
-     db.delete(user)
+     db.delete(db_user)
      db.commit()
      return {"message": "User deleted"}
 
@@ -84,7 +88,7 @@ async def update_profile(update_request:  UpdateUserProfileRequest, user: user_d
        db.add(profile)
        db.commit()
        db.refresh(profile)
-    for key, value in update_request.dict(exclude_unset=True).items():
+    for key, value in update_request.model_dump(exclude_unset=True).items():
         setattr(profile, key, value)
     db.commit()
     db.refresh(profile)

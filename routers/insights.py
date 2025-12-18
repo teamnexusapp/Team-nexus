@@ -1,19 +1,58 @@
-
-from schema import InsightsRequest
-from fastapi import APIRouter
-from utils.ai import hf_generate
+from typing import Annotated, List
+from datetime import datetime, date
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from database import SessionLocal
+from models import Insights, Users
+from schemas import InsightsRequest, InsightsResponse
+from utils.utils import get_current_user
+from starlette import status
 from utils.predictions import simple_fertility_ai
+from services.insights_engine import generate_insight_key
+from services.translator import translate_insight
 
 
-router = APIRouter()
-
-
-
-
-@router.post("/insights")
-async def insights(data: InsightsRequest):
+def get_db():
+    db = SessionLocal()
     try:
+        yield db
+    finally:
+        db.close()
 
+
+db_dependency = Annotated[Session, Depends(get_db)]
+user_dependency = Annotated[dict, Depends(get_current_user)]
+
+router = APIRouter(
+    prefix="/insights",
+    tags=["insights"]
+)
+
+
+def str_to_date(date_str: str) -> date:
+    return datetime.strptime(date_str, "%Y-%m-%d").date()
+
+
+@router.get("/insights", status_code=status.HTTP_200_OK, response_model=List[InsightsResponse])
+async def get_insights(db: db_dependency,user: user_dependency):
+    user_insights = db.query(Insights).filter(Insights.id == user['id']).all()
+    if  not user_insights:
+        return {"message": "No available insights"}
+    return user_insights
+
+
+@router.post("/insights", status_code=status.HTTP_200_OK)
+async def insights(
+    data: InsightsRequest,
+    db: db_dependency,
+    user: user_dependency
+):
+    db_user = db.query(Users).filter(Users.id == user["id"]).first()
+    if not db_user:
+        raise HTTPException(status_code=401, detail="Unauthorized!")
+
+    try:
+        
         prep_result = simple_fertility_ai(
             cycle_length=data.cycle_length,
             last_period_date=data.last_period_date,
@@ -21,29 +60,62 @@ async def insights(data: InsightsRequest):
             symptoms=data.symptoms
         )
 
-        prep_result["next_period"] = str(prep_result["next_period"])
-        prep_result["ovulation_day"] = str(prep_result["ovulation_day"])
-        prep_result["fertile_window"] = [
-            str(d) for d in prep_result["fertile_window"]]
+        next_period_date = str_to_date(prep_result["next_period"])
+        ovulation_day_date = str_to_date(prep_result["ovulation_day"])
+        fertile_start_date = str_to_date(prep_result["fertile_window"][0])
+        fertile_end_date = str_to_date(prep_result["fertile_window"][1])
+        fertility_score = prep_result["fertility_score"]
 
-        prompt = f"""
-These are the fertility predictions:
-Next period: {prep_result['next_period']}
-Ovulation day: {prep_result['ovulation_day']}
-Fertile window: {prep_result['fertile_window']}
-Fertility score: {prep_result['fertility_score']}
+    
+        key = generate_insight_key(
+            today=date.today(),
+            ovulation_day=ovulation_day_date,
+            fertile_start=fertile_start_date,
+            fertile_end=fertile_end_date,
+            fertility_score=fertility_score
+        )
 
-Write a friendly, supportive, simple fertility insight.
-Avoid medical diagnosis.
-"""
+  
+        insight_text = translate_insight(
+            key=key,
+            language=db_user.language_preference.value
+        )
 
-        insight = hf_generate(prompt)
+        # ---------------- Upsert Insight ----------------
+        existing_insight = db.query(Insights).filter(
+            Insights.user_id == db_user.id
+        ).first()
+
+        if existing_insight:
+            existing_insight.next_period = next_period_date
+            existing_insight.ovulation_day = ovulation_day_date
+            existing_insight.fertile_period_start = fertile_start_date
+            existing_insight.fertile_period_end = fertile_end_date
+            existing_insight.symptoms = data.symptoms
+            existing_insight.insight_text = insight_text
+            db.commit()
+            db.refresh(existing_insight)
+            saved_insight = existing_insight
+        else:
+            new_insight = Insights(
+                user_id=db_user.id,
+                next_period=next_period_date,
+                ovulation_day=ovulation_day_date,
+                fertile_period_start=fertile_start_date,
+                fertile_period_end=fertile_end_date,
+                symptoms=data.symptoms,
+                insight_text=insight_text
+            )
+            db.add(new_insight)
+            db.commit()
+            db.refresh(new_insight)
+            saved_insight = new_insight
 
         return {
             "predictions": prep_result,
-            "insight": insight
+            "insight": saved_insight.insight_text
         }
 
     except Exception as e:
-
-        return {"error": f"Something went wrong: {e}"}
+        raise HTTPException(
+            status_code=500, detail=f"Something went wrong: {e}")

@@ -34,3 +34,8 @@ app.include_router(users.router)
 app.include_router(cycles.router)
 app.include_router(insights.router)
 app.include_router(messages.router)
+
+
+@app.get("/")
+async def root():
+    return {"message": "Fertility FastAPI is running!"}

@@ -13,7 +13,13 @@ SYMPTOM_SCORES = {
 }
 
 
-def simple_fertility_ai(cycle_length, last_period_date, symptoms, period_length):
+def simple_fertility_ai(
+    *,
+    cycle_length: int,
+    last_period_date: date,
+    period_length: int,
+    symptoms: list[str] | None
+):
     cycle_length = cycle_length or 28
     period_length = period_length or 5 
 

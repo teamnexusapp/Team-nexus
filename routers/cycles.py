@@ -6,11 +6,10 @@ from sqlalchemy.orm import Session
 from starlette import status
 from models import Cycles
 from database import SessionLocal
-from schema import CycleRequest, UpdateUserProfileRequest, UserProfileResponse, CycleResponse
-from .auth import get_current_user
+from schemas import CycleRequest, UpdateUserProfileRequest, UserProfileResponse, CycleResponse
 from passlib.context import CryptContext
-from utils.utility import cycle_calculation
 from utils.predictions import simple_fertility_ai
+from utils.utils import get_current_user
 
 
 router = APIRouter(

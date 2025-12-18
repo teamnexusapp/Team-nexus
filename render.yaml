@@ -1,19 +1,17 @@
 databases:
-  - name: fertility-db
-    databaseName: fertility_database
-    plan: free
+  - name: fertipath-db
+    databaseName: fertipath_database
     ipAllowList: [] #only allow connections from the app
 
 services:
   - type: web
-    name: fertility-backend
+    name: fertipath-backend
     runtime: python
     buildCommand: |
       pip install --upgrade pip
       pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     autoDeploy: true
-    plan: free
     rootDir: .
     branch: main
     envVars:
@@ -23,6 +21,6 @@ services:
         value: "3.13.4"
       - key: DATABASE_URL
         fromDatabase:
-          name: fertility-db
+          name: fertipath-db
           property: connectionString
 

@@ -1,6 +1,7 @@
 databases:
   - name: fertipath-db
     databaseName: fertipath_database
+    user: fertipath_user
     plan: free
     ipAllowList: [] #only allow connections from the app
 

@@ -1,6 +1,8 @@
 databases:
   - name: fertipath-db
     databaseName: fertipath_database
+    user: fertipath_user
+    plan: free
     ipAllowList: [] #only allow connections from the app
 
 services:
@@ -14,8 +16,9 @@ services:
     autoDeploy: true
     rootDir: .
     branch: main
+    plan: free
     envVars:
-      - key: COHERE_API_KEY
+      - key: FIREBASE_CREDENTIALS
         sync: false
       - key: PYTHON_VERSION
         value: "3.13.4"

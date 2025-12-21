@@ -5,7 +5,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import Annotated
 from database import SessionLocal
-from models import OTP, Users, LanguageEnum
+from models import OTP, PendingUser, Users, LanguageEnum
 from schemas import CreateUserRequest, Token
 from utils.utils import bcrypt_context, authenticate_user, create_access_token, generate_otp, hash_otp, send_otp_sms, verify_otp_hash
 from fastapi.security import OAuth2PasswordRequestForm
@@ -59,55 +59,94 @@ async def send_otp_registration(
 ):
     # Check if email or username already exists
     existing = db.query(Users).filter(
-        or_(Users.email == create_user_request.email,
-            Users.username == create_user_request.username)
+        or_(
+            Users.email == create_user_request.email,
+            Users.username == create_user_request.username
+        )
     ).first()
+
     if existing:
         raise HTTPException(
-            status_code=400, detail="Email or username already exists"
+            status_code=400,
+            detail="Email or username already exists"
         )
 
-    # Generate OTP
-    otp_code = generate_otp()  # e.g., 4-digit
+    otp_code = generate_otp()
     otp_hashed = hash_otp(otp_code)
-    expires_at = datetime.utcnow() + timedelta(minutes=5)  # 5 min expiry
+    expires_at = datetime.utcnow() + timedelta(minutes=5)
 
-    # Save OTP in DB
-    otp_record = OTP(
-        phone=create_user_request.phone_number,
-        otp_hashed=otp_hashed,
-        attempts=0,
-        is_used=False,
-        expires_at=expires_at
+    try:
+        # Clear previous OTPs
+        db.query(OTP).filter(
+            OTP.phone == create_user_request.phone_number,
+            OTP.is_used == False
+        ).delete()
+
+        # Clear previous pending registrations
+        db.query(PendingUser).filter(
+            PendingUser.phone_number == create_user_request.phone_number
+        ).delete()
+
+        # Create OTP
+        otp_record = OTP(
+            phone=create_user_request.phone_number,
+            otp_hashed=otp_hashed,
+            attempts=0,
+            is_used=False,
+            expires_at=expires_at
+        )
+        db.add(otp_record)
+
+        # Create pending user
+        pending_user = PendingUser(
+            phone_number=create_user_request.phone_number,
+            email=create_user_request.email,
+            username=create_user_request.username,
+            first_name=create_user_request.first_name,
+            last_name=create_user_request.last_name,
+            hashed_password=bcrypt_context.hash(create_user_request.password),
+            role=create_user_request.role,
+            language_preference=create_user_request.language_preference,
+            expires_at=expires_at
+        )
+        db.add(pending_user)
+
+        db.commit()
+        db.refresh(otp_record)
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to send OTP. Please try again."
+        )
+
+    # Send OTP (outside transaction)
+    send_otp_sms(
+        create_user_request.phone_number,
+        f"Your verification code is {otp_code}"
     )
-    db.add(otp_record)
-    db.commit()
-    db.refresh(otp_record)
-
-    # Send OTP via SMS (Firebase or other provider)
-    send_otp_sms(create_user_request.phone_number,
-                 f"Your verification code is {otp_code}")
 
     return {
-        "message": f"OTP sent to {create_user_request.phone_number}",
-        "phone_number": create_user_request.phone_number
+        "message": "OTP sent successfully",
+        "verification_id": otp_record.verification_id
     }
 
-# --------------------------
+
+
 # Step 2: Verify OTP & create user
-# --------------------------
 
 
 @router.post("/verify-otp", status_code=status.HTTP_201_CREATED)
 async def verify_otp_registration(
     db: db_dependency,
-    phone_number: str = Body(...),
+    verification_id: str = Body(...),
     otp_code: str = Body(...),
-    create_user_request: CreateUserRequest = Body(...)
+   
 ):
     # Get the latest OTP for this phone
     otp_record = db.query(OTP).filter(
-        OTP.phone == phone_number,
+        OTP.verification_id == verification_id,
         OTP.is_used == False
     ).order_by(OTP.id.desc()).first()
 
@@ -125,23 +164,30 @@ async def verify_otp_registration(
 
     # Mark OTP as used
     otp_record.is_used = True
-    db.commit()
+    pending_user = db.query(PendingUser).filter(
+        PendingUser.phone_number == otp_record.phone
+    ).first()
+
+    if not pending_user:
+        raise HTTPException(
+            status_code=400, detail="Registration data not found")
 
     # Create user
-    hashed_password = bcrypt_context.hash(create_user_request.password)
+   
     new_user = Users(
-        email=create_user_request.email,
-        username=create_user_request.username,
-        first_name=create_user_request.first_name,
-        last_name=create_user_request.last_name,
-        hashed_password=hashed_password,
-        role=create_user_request.role,
-        phone_number=create_user_request.phone_number,
+        email=pending_user.email,
+        username=pending_user.username,
+        first_name=pending_user.first_name,
+        last_name=pending_user.last_name,
+        hashed_password= pending_user.hashed_password,
+        role=pending_user.role,
+        phone_number=otp_record.phone,
         is_verified=True,
-        language_preference=create_user_request.language_preference or LanguageEnum.ENGLISH
+        language_preference=pending_user.language_preference or LanguageEnum.ENGLISH
     )
 
     db.add(new_user)
+    db.delete(pending_user)
     db.commit()
     db.refresh(new_user)
 

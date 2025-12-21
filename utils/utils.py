@@ -1,3 +1,4 @@
+
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 from fastapi import Depends, HTTPException
@@ -14,12 +15,7 @@ import os
 
 bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl='auth/token')
-TERMII_API_KEY = os.getenv("TERMII_API_KEY")
-TERMII_BASE_URL = os.getenv("TERMII_BASE_URL", "https://v3.api.termii.com")
 OTP_EXPIRE_MINUTES = int(os.getenv("OTP_EXPIRE_MINUTES", 5))
-
-
-
 
 
 def authenticate_user(username: str, password: str, db):
@@ -70,4 +66,17 @@ def verify_otp_hash(plain_otp: str, hashed_otp: str) -> bool:
 def send_otp_sms(phone_number: str, message: str):
     # For testing, just print
     print(f"Sending SMS to {phone_number}: {message}")
+
+
+# for real sms integration
+# ..................................
+# from twilio.rest import Client
+
+# def send_otp_sms(phone_number: str, message: str):
+#     client = Client(account_sid, auth_token)
+#     client.messages.create(
+#         body=message,
+#         from_='+1234567890',  # Twilio phone
+#         to=phone_number
+#     )
 

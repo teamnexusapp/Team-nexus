@@ -1,6 +1,7 @@
 from enum import Enum
 from datetime import date, datetime
 from typing import List, Optional
+import uuid
 from database import Base
 from sqlalchemy import Column, Date, DateTime, Integer, String, Boolean, ForeignKey, JSON, Enum as SQLEnum, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -39,6 +40,29 @@ class Users(Base):
         "Cycles", back_populates="user", uselist=False, cascade="all, delete")
     insights: Mapped["Insights"] = relationship(
         "Insights", back_populates="user", uselist=False, cascade="all, delete")
+    
+
+class PendingUser(Base):
+    __tablename__ = "pending_users"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    phone_number = Column(String, nullable=False, index=True)
+    email = Column(String, nullable=False)
+    username = Column(String, nullable=False)
+
+    first_name = Column(String, nullable=False)
+    last_name = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    role = Column(String, nullable=False)
+
+    language_preference = Column(
+        SQLEnum(LanguageEnum),
+        default=LanguageEnum.ENGLISH,
+        nullable=False
+    )
+
+    expires_at = Column(DateTime, nullable=False)
 
 
 class UserProfile(Base):
@@ -62,8 +86,10 @@ class OTP(Base):
     __tablename__ = "otp"
 
     id = Column(Integer, primary_key=True, index=True)
+    verification_id = Column(
+        String, unique=True, index=True, default=lambda: str(uuid.uuid4()))
     phone = Column(String, nullable=False)
-    otp_hashed = Column(String, nullable=False)   # <- notice name
+    otp_hashed = Column(String, nullable=False) 
     attempts = Column(Integer, default=0)
     is_used = Column(Boolean, default=False)
     expires_at = Column(DateTime, nullable=False)

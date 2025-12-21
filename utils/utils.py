@@ -7,15 +7,25 @@ from models import Users
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 import random
-import requests
+from dotenv import load_dotenv
 import os
 
 
+load_dotenv()
 
 bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl='auth/token')
 OTP_EXPIRE_MINUTES = int(os.getenv("OTP_EXPIRE_MINUTES", 5))
+
+SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
+SENDGRID_SENDER_EMAIL = os.getenv("SENDGRID_SENDER_EMAIL")
+SENDGRID_SENDER_NAME = os.getenv("SENDGRID_SENDER_NAME")
+
+
+
 
 
 def authenticate_user(username: str, password: str, db):
@@ -63,20 +73,53 @@ def verify_otp_hash(plain_otp: str, hashed_otp: str) -> bool:
     return bcrypt_context.verify(plain_otp, hashed_otp)
 
 
+#implimenting sendgrid emailing service
+
+def send_otp_email(to_email: str, otp_code: str):
+    """
+    Send a 4-digit OTP email via SendGrid.
+    Includes debug prints to avoid HTTP 400 errors.
+    """
+    # Debug: print values
+    print(
+        f"[DEBUG] From: {SENDGRID_SENDER_EMAIL}, To: {to_email}, OTP: {otp_code}")
+
+    if not SENDGRID_API_KEY or not SENDGRID_SENDER_EMAIL or not SENDGRID_SENDER_NAME:
+        raise ValueError("SendGrid environment variables not set correctly.")
+
+    if "@" not in to_email:
+        raise ValueError(f"Invalid recipient email: {to_email}")
+
+    message = Mail(
+        from_email=SENDGRID_SENDER_EMAIL,
+        to_emails=to_email,
+        subject="Your Verification Code",
+        html_content=f"""
+        <div style="font-family: Arial, sans-serif;">
+            <h2>Email Verification</h2>
+            <p>Your verification code is:</p>
+            <h1>{otp_code}</h1>
+            <p>This code expires in 5 minutes.</p>
+        </div>
+        """
+    )
+
+    try:
+        sg = SendGridAPIClient(SENDGRID_API_KEY)
+        response = sg.send(message)
+        print(f"[DEBUG] SendGrid response status: {response.status_code}")
+        if response.status_code not in (200, 202):
+            raise Exception(
+                f"Failed to send email: {response.status_code}, {response.body}")
+        print(f"OTP sent successfully to {to_email}")
+    except Exception as e:
+        print(f"SendGrid error: {e}")
+        raise e
+
+# implimenting sendgrid emailing service
+
 def send_otp_sms(phone_number: str, message: str):
     # For testing, just print
     print(f"Sending SMS to {phone_number}: {message}")
 
-
-# for real sms integration
-# ..................................
-# from twilio.rest import Client
-
-# def send_otp_sms(phone_number: str, message: str):
-#     client = Client(account_sid, auth_token)
-#     client.messages.create(
-#         body=message,
-#         from_='+1234567890',  # Twilio phone
-#         to=phone_number
-#     )
 

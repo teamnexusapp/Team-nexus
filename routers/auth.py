@@ -7,7 +7,7 @@ from typing import Annotated
 from database import SessionLocal
 from models import OTP, PendingUser, Users, LanguageEnum
 from schemas import CreateUserRequest, Token
-from utils.utils import bcrypt_context, authenticate_user, create_access_token, generate_otp, hash_otp, send_otp_sms, verify_otp_hash
+from utils.utils import bcrypt_context, authenticate_user, create_access_token, generate_otp, hash_otp,verify_otp_hash,send_otp_email,send_otp_sms
 from fastapi.security import OAuth2PasswordRequestForm
 import firebase_admin
 from firebase_admin import credentials
@@ -16,22 +16,24 @@ import os
 
 load_dotenv()
 
-firebase_creds = os.getenv("FIREBASE_CREDENTIALS")
-if not firebase_creds:
-    raise ValueError("FIREBASE_CREDENTIALS environment variable is not set!")
+USE_SMS = os.getenv("USE_SMS", "false").lower() == "true"
 
-try:
-    # Try to parse it as JSON directly (Render case)
-    cred_dict = json.loads(firebase_creds)
-except json.JSONDecodeError:
-    # If it fails, treat it as a file path (local dev case)
-    with open(firebase_creds, "r") as f:
-        cred_dict = json.load(f)
+# firebase_creds = os.getenv("FIREBASE_CREDENTIALS")
+# if not firebase_creds:
+#     raise ValueError("FIREBASE_CREDENTIALS environment variable is not set!")
 
-cred = credentials.Certificate(cred_dict)
+# try:
+#     # Try to parse it as JSON directly (Render case)
+#     cred_dict = json.loads(firebase_creds)
+# except json.JSONDecodeError:
+#     # If it fails, treat it as a file path (local dev case)
+#     with open(firebase_creds, "r") as f:
+#         cred_dict = json.load(f)
 
-if not firebase_admin._apps:
-    firebase_admin.initialize_app(cred)
+# cred = credentials.Certificate(cred_dict)
+
+# if not firebase_admin._apps:
+#     firebase_admin.initialize_app(cred)
 
 router = APIRouter(
     prefix="/auth",
@@ -122,7 +124,10 @@ async def send_otp_registration(
         )
 
     # Send OTP (outside transaction)
-    send_otp_sms(
+    if not USE_SMS:
+        send_otp_email(create_user_request.email, otp_code)
+    else:
+        send_otp_sms(
         create_user_request.phone_number,
         f"Your verification code is {otp_code}"
     )

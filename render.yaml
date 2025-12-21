@@ -27,4 +27,12 @@ services:
         fromDatabase:
           name: fertipath-db
           property: connectionString
-
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: SENDGRID_SENDER_EMAIL
+        value: "teamnexus@techlaunchpadi.com"
+      - key: SENDGRID_SENDER_NAME
+        value: "Team Nexus"
+      - key: USE_SMS
+        value: "false"
+        

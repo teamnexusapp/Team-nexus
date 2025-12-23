@@ -1,15 +1,8 @@
 from pydantic import BaseModel, Field, EmailStr
 from datetime import date, datetime
 from typing import List, Optional
-from enum import Enum
+from utils.enum import LanguageEnum, RoleEnum, Symptom
 from sqlalchemy import String
-
-
-class LanguageEnum(str, Enum):
-    en = "en"
-    yo = "yo"
-    ig = "ig"
-    ha = "ha"
 
 
 class CreateUserRequest(BaseModel):
@@ -18,13 +11,13 @@ class CreateUserRequest(BaseModel):
     first_name: str = Field(..., max_length=100)
     last_name: str = Field(..., max_length=100)
     password: str = Field(..., min_length=8, max_length=60)
-    role: str
+    role: Optional[RoleEnum] = RoleEnum.USER
     phone_number: str
-    language_preference: Optional[LanguageEnum] = LanguageEnum.en
+    language_preference: Optional[LanguageEnum] = LanguageEnum.ENGLISH
 
 
 class UserVerify(BaseModel):
-    phone_number: str
+    email: str
 
 
 class UpdateUserProfileRequest(BaseModel):
@@ -33,7 +26,7 @@ class UpdateUserProfileRequest(BaseModel):
     last_period_date: date
     ttc_history: Optional[str] = None
     faith_preference: str
-    audio_perference: bool
+    audio_preference: Optional[bool] = None
 
 
 class UserProfileResponse(BaseModel):
@@ -48,28 +41,34 @@ class UserProfileResponse(BaseModel):
     class Config:
         from_attributes = True
 
+    
+    
+class LoginRequest(BaseModel):
+        email: str
+        password: str
 
-class Symptom(str, Enum):
-    headache = "headache"
-    nausea = "nausea"
-    cramps = "cramps"
-    fatigue = "fatigue"
-    breast_tenderness = "breast_tenderness"
-    acne = "acne"
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str 
+    new_password: str = Field(..., min_length=8)
 
 
 class CycleRequest(BaseModel):
     last_period_date: date
     cycle_length: int = Field(..., ge=21, le=32)
     period_length: int = Field(..., ge=2, le=10)
-    symptoms: Optional[List[Symptom]] = None
+    symptoms: List[Symptom] = Field(default_factory=list)
 
 
 class CycleResponse(BaseModel):
     last_period_date: date
     cycle_length: int
     period_length: int
-    symptons: Optional[List[Symptom]]
+    symptoms: List[Symptom] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
@@ -95,7 +94,7 @@ class InsightsRequest(BaseModel):
     cycle_length: int
     last_period_date: date
     period_length: int
-    symptoms: list[str] | None = None
+    symptoms: List[str] = Field(default_factory=list)
 
 
 class InsightsResponse(BaseModel):
@@ -103,7 +102,7 @@ class InsightsResponse(BaseModel):
     ovulation_day: str
     fertile_period_start:str
     fertile_period_end: str
-    symptoms: list[str] | None = None
+    symptoms: List[str] = Field(default_factory=list)
      
 
 

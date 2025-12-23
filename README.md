@@ -95,15 +95,12 @@ Authenticate a user and receive an access token.
 | `username` | string | Yes | User's username or email |
 | `password` | string | Yes | User's password |
 
-**Request Body:**
-```json
-{
-  "username": "john_doe",
-  "password": "SecureP@ss123"
-}
+**Request Body (Form Data):**
+```
+username=john_doe&password=SecureP@ss123
 ```
 
-**Note:** This endpoint uses `application/x-www-form-urlencoded` format (OAuth2 standard).
+**Note:** This endpoint uses `application/x-www-form-urlencoded` format (OAuth2 standard), not JSON.
 
 <details>
 <summary>Success Response (200 OK)</summary>

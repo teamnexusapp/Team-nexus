@@ -53,7 +53,7 @@ async def get_cycle(db:db_dependency, user:user_dependency):
     ]
 
 
-#.. endpoints
+
 @router.post("/cycles", status_code=status.HTTP_200_OK, response_model=dict)
 async def cycles(cycle_data: CycleRequest, db: db_dependency, user: user_dependency ):
     user_id = user['id']

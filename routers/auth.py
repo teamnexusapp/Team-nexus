@@ -201,21 +201,20 @@ async def verify_otp_registration(
 @router.post("/token", response_model=Token)
 async def login_in_token(
     data: LoginRequest,
-    db: Session = Depends(get_db)
+    db: db_dependency,
+    # form_data: OAuth2PasswordRequestForm = Depends(),
+
 ):
     user = authenticate_user(data.email, data.password, db)
+    # user = authenticate_user(form_data.username, form_data.password, db)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate user!"
         )
-    # if user.provider != "local":
-    #     raise HTTPException(
-    #         status_code=status.HTTP_406_NOT_ACCEPTABLE,
-    #         detail="Use Google or Facebook to sign in"
-    #     )
 
     token = create_access_token(
+      
         email=user.email,
         user_id=user.id,
         role=user.role,
@@ -227,7 +226,7 @@ async def login_in_token(
 # Forgot Password Logic
 
 @router.post("/forgot_password", status_code=status.HTTP_200_OK)
-async def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
+async def forgot_password(data: ForgotPasswordRequest, db: db_dependency):
     user = db.query(Users).filter(Users.email == data.email).first()
     if not user:
         raise HTTPException(
@@ -243,7 +242,7 @@ async def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get
 
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK)
-def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
+def reset_password(data: ResetPasswordRequest, db: db_dependency):
     reset_record = db.query(PasswordResetToken).filter(
         PasswordResetToken.token == data.token,
         PasswordResetToken.expires_at > datetime.utcnow()
@@ -257,11 +256,7 @@ def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found!")
-    # if user.provider != "local":
-    #     raise HTTPException(
-    #         status_code=status.HTTP_400_BAD_REQUEST,
-    #         detail="Password reset not available for social accounts"
-    #     )
+
     user.hashed_password = bcrypt_context.hash(data.new_password)
     db.delete(reset_record)
     db.commit()

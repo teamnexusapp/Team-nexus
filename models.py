@@ -113,12 +113,14 @@ class UserProfile(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey(
         "users.id", ondelete="CASCADE"), unique=True)
-    age: Mapped[Optional[int]] = mapped_column(Integer)
-    cycle_length: Mapped[Optional[int]] = mapped_column(Integer)
-    last_period_date: Mapped[Optional[date]] = mapped_column(Date)
-    ttc_history: Mapped[Optional[str]] = mapped_column(String)
-    faith_preference: Mapped[Optional[str]] = mapped_column(String)
-    audio_preference: Mapped[Optional[bool]] = mapped_column(Boolean)
+    age: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    cycle_length: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    period_length: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True)
+    last_period_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    ttc_history: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    faith_preference: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    audio_preference: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
 
     user: Mapped["Users"] = relationship("Users", back_populates="profile")
 

@@ -19,20 +19,24 @@ class CreateUserRequest(BaseModel):
 class UserVerify(BaseModel):
     email: str
 
+class UpdateLangaugeRequest(BaseModel):
+    language_preference: Optional[LanguageEnum] = None
 
 class UpdateUserProfileRequest(BaseModel):
-    age: int
-    cycle_length: int
-    last_period_date: date
+    age: Optional[int] = None
+    cycle_length: Optional[int] = None
+    period_length: Optional[int] = None
+    last_period_date: Optional[date] = None
     ttc_history: Optional[str] = None
-    faith_preference: str
+    faith_preference: Optional[str] = None
     audio_preference: Optional[bool] = None
 
 
 class UserProfileResponse(BaseModel):
-    user_id: int
+    user_id: Optional[int] = None
     age: Optional[int] = None
     cycle_length: Optional[int] = None
+    period_length: Optional[int] = None
     last_period_date: Optional[date] = None
     ttc_history: Optional[str] = None
     faith_preference: Optional[str] = None
@@ -44,7 +48,7 @@ class UserProfileResponse(BaseModel):
     
     
 class LoginRequest(BaseModel):
-        email: str
+        email: EmailStr
         password: str
 
 
@@ -61,14 +65,14 @@ class CycleRequest(BaseModel):
     last_period_date: date
     cycle_length: int = Field(..., ge=21, le=32)
     period_length: int = Field(..., ge=2, le=10)
-    symptoms: List[Symptom] = Field(default_factory=list)
+    symptoms: List[str] = Field(default_factory=list)
 
 
 class CycleResponse(BaseModel):
     last_period_date: date
     cycle_length: int
     period_length: int
-    symptoms: List[Symptom] = Field(default_factory=list)
+    symptoms: List[str] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
@@ -98,11 +102,15 @@ class InsightsRequest(BaseModel):
 
 
 class InsightsResponse(BaseModel):
-    next_period: str
-    ovulation_day: str
-    fertile_period_start:str
-    fertile_period_end: str
+    next_period: date
+    ovulation_day: date
+    fertile_period_start:date
+    fertile_period_end: date
     symptoms: List[str] = Field(default_factory=list)
+    insight_text:str
+
+    class Config:
+       from_attributes = True
      
 
 

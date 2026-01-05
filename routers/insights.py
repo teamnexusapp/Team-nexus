@@ -35,9 +35,9 @@ def str_to_date(date_str: str) -> date:
 
 @router.get("/insights", status_code=status.HTTP_200_OK, response_model=List[InsightsResponse])
 async def get_insights(db: db_dependency,user: user_dependency):
-    user_insights = db.query(Insights).filter(Insights.id == user['id']).all()
-    if  not user_insights:
-        return {"message": "No available insights"}
+    user_insights = (db.query(Insights).filter(
+        Insights.user_id == user['id']).all())
+    
     return user_insights
 
 
@@ -49,7 +49,8 @@ async def insights(
 ):
     db_user = db.query(Users).filter(Users.id == user["id"]).first()
     if not db_user:
-        raise HTTPException(status_code=401, detail="Unauthorized!")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Please, Sign In")
 
     try:
         
@@ -81,7 +82,7 @@ async def insights(
             language=db_user.language_preference.value
         )
 
-        # ---------------- Upsert Insight ----------------
+     
         existing_insight = db.query(Insights).filter(
             Insights.user_id == db_user.id
         ).first()
@@ -118,4 +119,4 @@ async def insights(
 
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Something went wrong: {e}")
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Something went wrong: {e}")

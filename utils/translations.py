@@ -45,19 +45,5 @@ TRANSLATIONS = {
         "PERIOD_DAY": "Yau rana ce ta al'ada. Ki huta sosai kuma ki kula da jikinki.",
         "CYCLE_NORMAL": "Zagayen al'adarki yana tafiya daidai. Ki ci gaba da lura da shi.",
         "DEFAULT": "Lokacin samun ciki ya wuce a wannan zagaye. Ki ci gaba da bin diddigin al'adarki."
-<<<<<<< HEAD
-    },
-    "pg": {
-        "OVULATION_DAY": "Today na your ovulation day. Your chance to get belle high well well today. E good make una try if una wan get belle.",
-        "FERTILE_WINDOW": "You dey your fertile window now. Your chance to get belle dey higher for this time.",
-        "HIGH_FERTILITY": "Your fertility signs strong for this cycle. Continue to dey watch your body signs well.",
-        "LOW_FERTILITY": "Your fertility level low for now. Chance to get belle no too dey high this time.",
-        "POST_OVULATION": "Ovulation don pass for this cycle. Try rest well and take care of your body.",
-        "PERIOD_EXPECTED": "Your next period go start soon. You fit begin notice some body changes.",
-        "PERIOD_DAY": "Your period suppose start today. Take care of yourself and rest if you need am.",
-        "CYCLE_NORMAL": "Your menstrual cycle dey normal. Continue to dey track am make you get correct info.",
-        "DEFAULT": "Your fertile window don pass for this cycle. Continue to dey track your cycle regularly."
-=======
->>>>>>> 5c48a3e2fc43e9cf8b2656f18c05b62082d59510
     }
 }

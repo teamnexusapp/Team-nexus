@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, Body, status
@@ -59,7 +59,7 @@ async def send_otp_registration(
 
     otp_code = generate_otp()
     otp_hashed = hash_otp(otp_code)
-    expires_at = datetime.utcnow() + timedelta(minutes=5)
+    expires_at = datetime.utcnow() + timedelta(minutes=10)
 
     # Create OTP and pending user in DB
     try:
@@ -229,23 +229,30 @@ async def login_in_token(
 async def forgot_password(data: ForgotPasswordRequest, db: db_dependency):
     user = db.query(Users).filter(Users.email == data.email).first()
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Email not found!")
+       return {"message": "If the email exists, a reset link has been sent."}
+   
+   
+    #delete existing tokens
+    db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id ).delete()
+
     token = str(uuid.uuid4())
     reset_token = PasswordResetToken(
         user_id=user.id, token=token, expires_at=datetime.utcnow() + timedelta(minutes=5))
     db.add(reset_token)
     db.commit()
+    RESET_PASSWORD_URL = (
+        f"https://fertipath.onrender.com/#/reset_password?token={token}"
+    )
     send_password_reset_email(
-        to_email=user.email, reset_token=reset_token.token)
+        to_email=user.email, reset_link=RESET_PASSWORD_URL)
     return {"message": "Password reset email sent successfully."}
 
 
-@router.post("/reset-password", status_code=status.HTTP_200_OK)
+@router.post("/reset_password", status_code=status.HTTP_200_OK)
 def reset_password(data: ResetPasswordRequest, db: db_dependency):
     reset_record = db.query(PasswordResetToken).filter(
         PasswordResetToken.token == data.token,
-        PasswordResetToken.expires_at > datetime.utcnow()
+        PasswordResetToken.expires_at > datetime.now(timezone.utc)
     ).first()
 
     if not reset_record:
@@ -256,6 +263,9 @@ def reset_password(data: ResetPasswordRequest, db: db_dependency):
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found!")
+    
+    if len(data.new_password) < 8:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password must be 8 characters long")
 
     user.hashed_password = bcrypt_context.hash(data.new_password)
     db.delete(reset_record)
@@ -265,7 +275,6 @@ def reset_password(data: ResetPasswordRequest, db: db_dependency):
 
 
 # Logout endpoint (placeholder)
-
 @router.post("/logout")
 async def logout_user():
     return {"message": "Logout successful"}

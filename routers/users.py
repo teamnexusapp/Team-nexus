@@ -47,7 +47,7 @@ async def get_user(user: user_dependency, db: db_dependency):
         'last_name': db_user.last_name,
         'role': db_user.role,
         'phone_number': db_user.phone_number,
-        'preferred_language': db_user.language_preference
+        'language_preference': db_user.language_preference
     }
 
 @router.patch("/update_language_choice", status_code=status.HTTP_200_OK)

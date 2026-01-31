@@ -6,7 +6,7 @@ class LanguageEnum(str, Enum):
     YORUBA = "yo"
     IGBO = "ig"
     HAUSA = "ha"
-    PIDGIN = "pg"
+    PIDGIN = "pcm"
 
 
 class RoleEnum(str, Enum):

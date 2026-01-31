@@ -46,7 +46,7 @@ TRANSLATIONS = {
         "CYCLE_NORMAL": "Zagayen al'adarki yana tafiya daidai. Ki ci gaba da lura da shi.",
         "DEFAULT": "Lokacin samun ciki ya wuce a wannan zagaye. Ki ci gaba da bin diddigin al'adarki."
     },
-    "pg": {
+    "pcm": {
         "OVULATION_DAY": "Today na your ovulation day. Your chance to get belle high well well today. E good make una try if una wan get belle.",
         "FERTILE_WINDOW": "You dey your fertile window now. Your chance to get belle dey higher for this time.",
         "HIGH_FERTILITY": "Your fertility signs strong for this cycle. Continue to dey watch your body signs well.",

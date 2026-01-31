@@ -16,7 +16,8 @@ app = FastAPI()
 origins = [
     "http://localhost:3000",  # React dev server
     "http://127.0.0.1:3000",
-    "https://fertipath.onrender.com"  # production frontend
+    "https://fertipath.onrender.com",
+    "https://teamnexuss.netlify.app"  # production frontend
 ]
 
 app.add_middleware(
